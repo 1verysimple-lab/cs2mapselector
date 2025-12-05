@@ -145,6 +145,7 @@
                 <option value="Premier">Premier</option>
                 <option value="Competitive">Competitive</option>
                 <option value="Wingman">Wingman</option>
+                <option value="Retakes">Retakes</option>
             </select>
         </div>
         <button id="btnRandomMode" class="text-xs font-bold text-gray-400 hover:text-white px-3 py-1.5 rounded border border-[#333] hover:border-[#555] transition-all uppercase tracking-wider">
@@ -229,19 +230,24 @@
         // --- DATA & CONFIG ---
         const gridConfigs = {
             "Competitive": { cols: 7, rows: 2, startX: 0.8, startY: 12, gapX: 14.2, gapY: 42, width: 13.5, height: 38 },
-            "Wingman": { cols: 5, rows: 1, startX: 1, startY: 12, gapX: 20, gapY: 0, width: 19.5, height: 75 }
+            "Wingman": { cols: 5, rows: 1, startX: 1, startY: 12, gapX: 20, gapY: 0, width: 19.5, height: 75 },
+            // Retakes: 2 cards, centered. Assuming 2-col layout. Adjusted for Left/Right positioning.
+            "Retakes": { cols: 2, rows: 1, startX: 20, startY: 15, gapX: 40, gapY: 0, width: 20, height: 70 }
         };
 
         const mapPool = {
             "Premier": [], 
             "Competitive": ["Dust II", "Mirage", "Inferno", "Ancient", "Nuke", "Train", "Overpass", "Anubis", "Vertigo", "Palacio", "Golden", "Agency", "Office", "Italy"],
-            "Wingman": ["Rooftop", "Overpass", "Vertigo", "Nuke", "Inferno"]
+            "Wingman": ["Rooftop", "Overpass", "Vertigo", "Nuke", "Inferno"],
+            // Blues: Changed to directional outputs for Retakes
+            "Retakes": ["Left", "Right"]
         };
 
         const modeImages = {
             "Premier": "assets/premier.png",
             "Competitive": "assets/competitive.jpg",
-            "Wingman": "assets/wingman.jpg"
+            "Wingman": "assets/wingman.jpg",
+            "Retakes": "assets/retakes.jpg"
         };
         
         // Audio Assets
@@ -251,7 +257,7 @@
         let state = {
             currentMode: "Premier",
             vetoes: {}, 
-            history: { "Competitive": [], "Wingman": [] }
+            history: { "Competitive": [], "Wingman": [], "Retakes": [] }
         };
         let isShuffling = false;
         let isVetoMinimized = false;
@@ -312,18 +318,15 @@
 
         // --- AUDIO LOGIC ---
         function initAudio() {
-            // Pick random track
             const track = musicTracks[Math.floor(Math.random() * musicTracks.length)];
             els.bgMusic.src = track;
-            els.bgMusic.volume = 0.4; // Initial volume
+            els.bgMusic.volume = 0.4; 
 
-            // Try to play automatically
             const playPromise = els.bgMusic.play();
-            
             if (playPromise !== undefined) {
                 playPromise.catch(error => {
                     console.log("Autoplay prevented by browser. Waiting for interaction.");
-                    isMuted = true; // Visually set to muted initially if blocked
+                    isMuted = true; 
                     updateSoundIcon();
                 });
             }
@@ -343,10 +346,8 @@
 
         function updateSoundIcon() {
             if (isMuted || els.bgMusic.paused) {
-                // Muted Icon
                 els.btnSound.innerHTML = `<svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>`;
             } else {
-                // Speaker Icon
                 els.btnSound.innerHTML = `<svg class="w-5 h-5 text-[#2cc985]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>`;
             }
         }
@@ -399,7 +400,21 @@
                 els.btnAction.disabled = true;
                 els.btnAction.innerHTML = "<span>PICK/BAN IN GAME</span>";
                 els.defaultText.classList.remove('hidden');
+            } else if (mode === "Retakes") {
+                // RETAKES LOGIC: Hidden Veto, Visible History, Enabled Button
+                els.vetoContainer.classList.add('hidden'); 
+                els.historyContainer.classList.remove('hidden');
+                els.premierMessage.classList.add('hidden');
+                els.btnAction.disabled = false;
+                els.defaultText.classList.add('hidden');
+                
+                // Ensure Retakes options are active
+                if (!state.vetoes[mode]) state.vetoes[mode] = {};
+                mapPool[mode].forEach(m => state.vetoes[mode][m] = true);
+                
+                renderHistoryList(mode);
             } else {
+                // STANDARD LOGIC
                 els.vetoContainer.classList.remove('hidden');
                 els.historyContainer.classList.remove('hidden');
                 els.premierMessage.classList.add('hidden');
@@ -533,6 +548,7 @@
             if (state.currentMode === "Premier" || isShuffling) return;
             const allMaps = mapPool[state.currentMode];
             const activeMaps = allMaps.filter(m => state.vetoes[state.currentMode]?.[m] !== false);
+            
             if (activeMaps.length === 0) return alert("Select at least one map.");
 
             isShuffling = true;
